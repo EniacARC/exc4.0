@@ -30,19 +30,19 @@ HTTP_PROTOCOL_NAME = "HTTP/1.1"
 EXCEPTED_METHODS = ["GET"]
 
 REDIRECTED_LIST = ["/moved"]
-REDIRECTED_CODE = "TEMPORARILY MOVED 302"
+REDIRECTED_CODE = "302 TEMPORARILY MOVED"
 REDIRECTED_HEADER = "Location: /"
 
 FORBIDDEN_LIST = ["/forbidden"]
-FORBIDDEN_CODE = "FORBIDDEN 403"
+FORBIDDEN_CODE = "403 FORBIDDEN"
 
 ERROR_LIST = ["/error"]
-ERROR_CODE = "INTERNAL SERVER ERROR 500"
+ERROR_CODE = "500 INTERNAL SERVER ERROR"
 
 BAD_REQUEST_CODE = "400 BAD REQUEST"
 
 DOESNT_EXIST_CODE = "404 NOT FOUND"
-DOESNT_EXIST_CONTENT = "/img/abstract.jpg"
+DOESNT_EXIST_CONTENT = "/404.html"
 OK_CODE = "200 OK"
 
 WEBROOT = "C:/Users/Yonatan/PycharmProjects/exc4.0/webroot"
@@ -59,11 +59,17 @@ def get_file_data(file_name):
     :param file_name: the name of the file
     :return: the file data in a string
     """
+    ext = os.path.splitext(file_name)[1][1:]
     try:
-        with open(file_name, 'r') as file:
-            # Read the content of the file
-            file_data = file.read()
-            return file_data
+        if "text" in CONTENT_TYPE_DICT[ext]:
+            with open(file_name, 'r') as file:
+                # Read the content of the file
+                file_data = file.read().encode()
+                return file_data
+        else:
+            with open(file_name, 'rb') as file:
+                file_data = file.read()
+                return file_data
     except FileNotFoundError:
         print(f"File '{file_name}' not found.")
         return ""
@@ -132,7 +138,6 @@ def handle_ok(resource, data):
 
 
 def handle_client_request(resource, client_socket):
-    print("handle")
     """
     Check the required resource, generate proper HTTP response and send
     to client
@@ -142,26 +147,26 @@ def handle_client_request(resource, client_socket):
     """
     """ """
 
-    print(resource)
     if resource == "":
         res = handle_bad_request()
-        res.encode()
-    if resource in REDIRECTED_LIST:
+        res = res.encode()
+    elif resource in REDIRECTED_LIST:
         res = handle_redirect()
-        res.encode()
-    if resource in ERROR_LIST:
+        print(res)
+        res = res.encode()
+    elif resource in ERROR_LIST:
         res = handle_error()
-        res.encode()
+        res = res.encode()
     elif resource in FORBIDDEN_LIST:
         res = handle_forbidden()
-        res.encode()
+        res = res.encode()
     elif not os.path.exists(WEBROOT + resource):
         data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
         res = handle_not_found(data)
         # if "text" in CONTENT_TYPE_DICT[os.path.splitext(resource)[1]]:
         #
         #    data.encode()
-        res = res.encode() + data.encode()
+        res = res.encode() + data
     else:
         if resource == '/':
             filepath = WEBROOT + INDEX_URL
@@ -175,7 +180,7 @@ def handle_client_request(resource, client_socket):
         #    data.encode()
         #    res += data
         #    res.encode()
-        res = res.encode() + data.encode()
+        res = res.encode() + data
     client_socket.send(res)
 
 
