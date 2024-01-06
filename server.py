@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import socket
+from contextlib import redirect_stdout
 
 # define log constants
 LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
@@ -329,23 +330,34 @@ def main():
 
 
 if __name__ == "__main__":
-    # make sure we have a logging directory and configure the logging
-    if not os.path.isdir(LOG_DIR):
-        os.makedirs(LOG_DIR)
-    logging.basicConfig(format=LOG_FORMAT, filename=LOG_FILE, level=LOG_LEVEL)
-    r1 = validate_http_request("GET / HTTP/1.1\r\n\r\n")
-    assert "/" == r1 and OK_CODE in handle_client_request(r1)[1]
-
-    r = validate_http_request("GET /moved HTTP/1.1\r\n\r\n")
-    assert "/moved" == r and REDIRECTED_CODE in handle_client_request(r)[1]
-
-    r = validate_http_request("GET /forbidden HTTP/1.1\r\n\r\n")
-    assert "/forbidden" == r and FORBIDDEN_CODE in handle_client_request(r)[1]
-
-    r = validate_http_request("GET /error HTTP/1.1\r\n\r\n")
-    assert "/error" == r and ERROR_CODE in handle_client_request(r)[1]
-
-    r = validate_http_request("GET /nonexistent HTTP/1.1\r\n\r\n")
-    assert "/nonexistent" == r and DOESNT_EXIST_CODE in handle_client_request(r)[1]
+    with redirect_stdout(None):
+        # make sure we have a logging directory and configure the logging
+        if not os.path.isdir(LOG_DIR):
+            os.makedirs(LOG_DIR)
+        logging.basicConfig(format=LOG_FORMAT, filename=LOG_FILE, level=LOG_LEVEL)
+        r1 = validate_http_request("GET / HTTP/1.1\r\n\r\n")
+        assert "/" == r1 and OK_CODE in handle_client_request(r1)[1]
+    
+        r = validate_http_request("GET /moved HTTP/1.1\r\n\r\n")
+        assert "/moved" == r and REDIRECTED_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("GET /forbidden HTTP/1.1\r\n\r\n")
+        assert "/forbidden" == r and FORBIDDEN_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("GET /error HTTP/1.1\r\n\r\n")
+        assert "/error" == r and ERROR_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("GET /nonexistent HTTP/1.1\r\n\r\n")
+        assert "/nonexistent" == r and DOESNT_EXIST_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("POST / HTTP/1.1\r\n\r\n")
+        assert "" == r and BAD_REQUEST_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("GET dfwad HTTP/1.1\r\n\r\n")
+        assert "" == r and BAD_REQUEST_CODE in handle_client_request(r)[1]
+    
+        r = validate_http_request("POST / HTTP/1\r\n\r\n")
+        assert "" == r and BAD_REQUEST_CODE in handle_client_request(r)[1]
+    
     # Call the main handler function
     main()
