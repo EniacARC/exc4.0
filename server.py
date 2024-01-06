@@ -1,16 +1,21 @@
 """
- HTTP Server Shell
- Author: Barak Gonen and Nir Dweck
- Purpose: Provide a basis for Ex. 4
- Note: The code is written in a simple way, without classes, log files or
- other utilities, for educational purpose
- Usage: Fill the missing functions and constants
+HTTP Server Shell
+Author: Barak Gonen and Nir Dweck
+Purpose: Provide a basis for Ex. 4
+Note: The code is written in a simple way, without classes, log files, or
+other utilities, for educational purposes
+Usage: Fill the missing functions and constants
 """
+import logging
 import os
 import re
 import socket
 
-# TO DO: import modules
+# define log constants
+LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
+LOG_LEVEL = logging.DEBUG
+LOG_DIR = 'log'
+LOG_FILE = LOG_DIR + '/loggerServer.log'
 
 # TO DO: set constants
 
@@ -42,9 +47,9 @@ ERROR_CODE = "500 INTERNAL SERVER ERROR"
 BAD_REQUEST_CODE = "400 BAD REQUEST"
 
 DOESNT_EXIST_CODE = "404 NOT FOUND"
-DOESNT_EXIST_CONTENT = "/404.html"
 OK_CODE = "200 OK"
 
+DOESNT_EXIST_CONTENT = "/404.html"
 WEBROOT = "C:/Users/Yonatan/PycharmProjects/exc4.0/webroot"
 QUEUE_SIZE = 10
 MAX_PACKET = 1024
@@ -56,8 +61,12 @@ SOCKET_TIMEOUT = 2
 def get_file_data(file_name):
     """
     Get data from file
-    :param file_name: the name of the file
-    :return: the file data in a string
+
+    :param file_name: Name of the file.
+    :type file_name: str
+
+    :return: The file data in binary.
+    :rtype: bytes
     """
     ext = os.path.splitext(file_name)[1][1:]
     try:
@@ -71,33 +80,28 @@ def get_file_data(file_name):
                 file_data = file.read()
                 return file_data
     except FileNotFoundError:
+        logging.error(f"File '{file_name}' not found.")
         print(f"File '{file_name}' not found.")
         return ""
     except Exception as e:
+        logging.error(f"Error reading file '{file_name}': {e}")
         print(f"Error reading file '{file_name}': {e}")
         return ""
 
 
-def get_file_data_raw(file_name):
+def create_data_headers(resource, data):
     """
-    Get data from file
-    :param file_name: the name of the file
-    :return: the file data in bytes
+    Create data headers.
+
+    :param resource: The resource.
+    :type resource: str
+
+    :param data: The data.
+    :type data: bytes
+
+    :return: The headers.
+    :rtype: str
     """
-    try:
-        with open(file_name, 'rb') as file:
-            # Read the content of the file
-            file_data = file.read()
-            return file_data
-    except FileNotFoundError:
-        print(f"File '{file_name}' not found.")
-        return b''
-    except Exception as e:
-        print(f"Error reading file '{file_name}': {e}")
-        return b''
-
-
-def create_data_params(resource, data):
     file_extension = os.path.splitext(resource)[1][1:]
     headers = "Content-Type: " + CONTENT_TYPE_DICT[file_extension] + "\r\n"
     headers += "Content-Length: " + str(len(data)) + "\r\n"
@@ -105,94 +109,143 @@ def create_data_params(resource, data):
 
 
 def handle_bad_request():
+    """
+    Handle bad request.
+
+    :return: The response line.
+    :rtype: str
+    """
     res_line = HTTP_PROTOCOL_NAME + " " + BAD_REQUEST_CODE + "\r\n\r\n"
+    logging.debug(f"returning - {res_line}")
     return res_line
 
 
 def handle_redirect():
+    """
+    Handle redirect.
+
+    :return: The response line and headers.
+    :rtype: str
+    """
     res_line = HTTP_PROTOCOL_NAME + " " + REDIRECTED_CODE + "\r\n"
     headers = REDIRECTED_HEADER + "\r\n\r\n"
+    logging.debug(f"returning - {res_line}+{headers}")
     return res_line + headers
 
 
 def handle_forbidden():
+    """
+    Handle forbidden.
+
+    :return: The response line.
+    :rtype: str
+    """
     res_line = HTTP_PROTOCOL_NAME + " " + FORBIDDEN_CODE + "\r\n\r\n"
+    logging.debug(f"returning - {res_line}")
     return res_line
 
 
 def handle_error():
+    """
+    Handle error.
+
+    :return: The response line.
+    :rtype: str
+    """
     res_line = HTTP_PROTOCOL_NAME + " " + ERROR_CODE + "\r\n\r\n"
+    logging.debug(f"returning - {res_line}")
     return res_line
 
 
 def handle_not_found(data):
-    res = HTTP_PROTOCOL_NAME + " " + DOESNT_EXIST_CODE + "\r\n"
-    res += create_data_params(DOESNT_EXIST_CONTENT, data) + "\r\n"
-    return res
+    """
+    Handle not found.
+
+    :param data: The data.
+    :type data: bytes
+
+    :return: The response.
+    :rtype: str
+    """
+    res_line = HTTP_PROTOCOL_NAME + " " + DOESNT_EXIST_CODE + "\r\n"
+    headers = create_data_headers(DOESNT_EXIST_CONTENT, data) + "\r\n"
+    logging.debug(f"returning - {res_line}+{headers}")
+    return res_line + headers
 
 
 def handle_ok(resource, data):
-    res = HTTP_PROTOCOL_NAME + " " + OK_CODE + "\r\n"
-    res += create_data_params(resource, data) + "\r\n"
-    return res
+    """
+    Handle OK.
+
+    :param resource: The resource.
+    :type resource: str
+
+    :param data: The data.
+    :type data: bytes
+
+    :return: The response.
+    :rtype: str
+    """
+    res_line = HTTP_PROTOCOL_NAME + " " + OK_CODE + "\r\n"
+    headers = create_data_headers(resource, data) + "\r\n"
+    logging.debug(f"returning - {res_line}+{headers}")
+    return res_line + headers
 
 
 def handle_client_request(resource, client_socket):
     """
-    Check the required resource, generate proper HTTP response and send
-    to client
-    :param resource: the required resource
-    :param client_socket: a socket for the communication with the client
-    :return: None
-    """
-    """ """
+    Check the required resource, generate proper HTTP response, and send to client.
 
+    :param resource: The required resource.
+    :type resource: str
+
+    :param client_socket: A socket for communication with the client.
+    :type client_socket: socket.socket
+
+    :return: if the request was a valid http request
+    """
+    valid = True
     if resource == "":
-        res = handle_bad_request()
-        res = res.encode()
+        logging.warning("invalid http request")
+        print("Invalid HTTP Request")
+        valid = False
+        res = handle_bad_request().encode()
     elif resource in REDIRECTED_LIST:
-        res = handle_redirect()
-        print(res)
-        res = res.encode()
+        res = handle_redirect().encode()
     elif resource in ERROR_LIST:
-        res = handle_error()
-        res = res.encode()
+        res = handle_error().encode()
     elif resource in FORBIDDEN_LIST:
-        res = handle_forbidden()
-        res = res.encode()
+        res = handle_forbidden().encode()
     elif not os.path.exists(WEBROOT + resource):
         data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
-        res = handle_not_found(data)
-        # if "text" in CONTENT_TYPE_DICT[os.path.splitext(resource)[1]]:
-        #
-        #    data.encode()
-        res = res.encode() + data
+        res = handle_not_found(data).encode()
+        res = res + data
     else:
         if resource == '/':
             filepath = WEBROOT + INDEX_URL
         else:
             filepath = WEBROOT + resource
-        print(filepath)
         data = get_file_data(filepath)
-        res = handle_ok(filepath, data)
-        # if "text" in CONTENT_TYPE_DICT[os.path.splitext(filepath)[1][1:]]:
-        #    print("text")
-        #    data.encode()
-        #    res += data
-        #    res.encode()
-        res = res.encode() + data
-    client_socket.send(res)
+        res = handle_ok(filepath, data).encode()
+        res = res + data
+
+    sent = 0
+    while sent < len(res):
+        sent += client_socket.send(res)
+    return valid
 
 
 def validate_http_request(request):
     """
-    Check if request is a valid HTTP request and returns TRUE / FALSE and
-    the requested URL
-    :param request: the request which was received from the client
-    :return: a tuple of (True/False - depending if the request is valid,
-    the requested resource )
+    Check if request is a valid HTTP request and return TRUE/FALSE and the requested URL.
+
+    :param request: The request received from the client.
+    :type request: str
+
+    :return: the requested resource
+    :rtype: str
     """
-    r_value = False, ""
+    r_value = ""
     lines = re.split('\r\n', request)
     if len(lines) >= 2:
         req_line = lines[0].split(" ")
@@ -201,7 +254,7 @@ def validate_http_request(request):
             if protocol == HTTP_PROTOCOL_NAME:
                 if method in EXCEPTED_METHODS:
                     if resource.startswith("/"):
-                        r_value = True, resource
+                        r_value = resource
     return r_value
 
 
@@ -213,21 +266,18 @@ def handle_client(client_socket):
     :return: None
     """
     print('Client connected')
-    while True:
+    valid = True
+    while valid:
         # TO DO: insert code that receives client request
         client_request = ""
         while not re.search('\r\n\r\n', client_request):
             packet = client_socket.recv(MAX_PACKET).decode()
             if packet == '':
+                client_request = ''
                 break
             client_request += packet
-        valid_http, resource = validate_http_request(client_request)
-        if valid_http:
-            print('Got a valid HTTP request')
-            handle_client_request(resource, client_socket)
-        else:
-            print('Error: Not a valid HTTP request')
-            break
+        resource = validate_http_request(client_request)
+        valid = handle_client_request(resource, client_socket)
     print('Closing connection')
 
 
@@ -256,5 +306,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # make sure we have a logging directory and configure the logging
+    if not os.path.isdir(LOG_DIR):
+        os.makedirs(LOG_DIR)
+    logging.basicConfig(format=LOG_FORMAT, filename=LOG_FILE, level=LOG_LEVEL)
     # Call the main handler function
     main()
