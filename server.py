@@ -192,47 +192,41 @@ def handle_ok(resource, data):
     return res_line + headers
 
 
-def handle_client_request(resource, client_socket):
+def handle_client_request(resource):
     """
     Check the required resource, generate proper HTTP response, and send to client.
 
     :param resource: The required resource.
     :type resource: str
 
-    :param client_socket: A socket for communication with the client.
-    :type client_socket: socket.socket
-
-    :return: if the request was a valid http request
+    :return: if the request was a valid http request, the response line + headers and the response body if exists
+    :rtype tuple(bool, str, bytes)
     """
+    res, data = "", b''
     valid = True
     if resource == "":
         logging.warning("invalid http request")
         print("Invalid HTTP Request")
         valid = False
-        res = handle_bad_request().encode()
+        res = handle_bad_request()
     elif resource in REDIRECTED_LIST:
-        res = handle_redirect().encode()
+        res = handle_redirect()
     elif resource in ERROR_LIST:
-        res = handle_error().encode()
+        res = handle_error()
     elif resource in FORBIDDEN_LIST:
-        res = handle_forbidden().encode()
+        res = handle_forbidden()
     elif not os.path.exists(WEBROOT + resource):
         data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
-        res = handle_not_found(data).encode()
-        res = res + data
+        res = handle_not_found(data)
     else:
         if resource == '/':
             filepath = WEBROOT + INDEX_URL
         else:
             filepath = WEBROOT + resource
         data = get_file_data(filepath)
-        res = handle_ok(filepath, data).encode()
-        res = res + data
+        res = handle_ok(filepath, data)
 
-    sent = 0
-    while sent < len(res):
-        sent += client_socket.send(res)
-    return valid
+    return valid, res, data
 
 
 def validate_http_request(request):
@@ -258,6 +252,32 @@ def validate_http_request(request):
     return r_value
 
 
+def send_data(client_socket, res, data):
+    """
+    :param client_socket: A socket for communication with the client.
+    :type client_socket: socket.socket\
+
+    :param res: the response line + headers
+    :type res: str
+
+    :param data: the response body
+    :type data: bytes
+
+    :return: if the data was sent successfully
+    :rtype: bool
+    """
+    was_sent = False
+    try:
+        sent = 0
+        to_sent = res.encode() + data
+        while sent < len(to_sent):
+            sent += client_socket.send(to_sent)
+        was_sent = True
+    except socket.error as err:
+        logging.error(f"error while sending to client: {err}")
+    return was_sent
+
+
 def handle_client(client_socket):
     """
     Handles client requests: verifies client's requests are legal HTTP, calls
@@ -266,8 +286,7 @@ def handle_client(client_socket):
     :return: None
     """
     print('Client connected')
-    valid = True
-    while valid:
+    while True:
         # TO DO: insert code that receives client request
         client_request = ""
         while not re.search('\r\n\r\n', client_request):
@@ -277,7 +296,11 @@ def handle_client(client_socket):
                 break
             client_request += packet
         resource = validate_http_request(client_request)
-        valid = handle_client_request(resource, client_socket)
+        valid, res, data = handle_client_request(resource, client_socket)
+        if not valid:
+            break
+        if not send_data(client_socket, res, data):
+            break
     print('Closing connection')
 
 
