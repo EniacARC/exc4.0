@@ -296,7 +296,7 @@ def handle_client(client_socket):
                 break
             client_request += packet
         resource = validate_http_request(client_request)
-        valid, res, data = handle_client_request(resource, client_socket)
+        valid, res, data = handle_client_request(resource)
         if not valid:
             break
         if not send_data(client_socket, res, data):
