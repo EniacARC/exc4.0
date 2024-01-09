@@ -306,6 +306,10 @@ def handle_client(client_socket):
 
 
 def main():
+    """
+    The mian functions. runs the server code.
+    return: none
+    """
     # Open a socket and loop forever while waiting for clients
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
