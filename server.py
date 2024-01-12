@@ -272,7 +272,7 @@ def send_data(client_socket, res, data):
         sent = 0
         to_sent = res.encode() + data
         while sent < len(to_sent):
-            sent += client_socket.send(to_sent)
+            sent += client_socket.send(to_sent[sent:])
         was_sent = True
     except socket.error as err:
         logging.error(f"error while sending to client: {err}")
