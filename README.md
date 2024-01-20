@@ -1,2 +1,2 @@
 # exc4.0  
-simple http server. made for school projects
+simple http server. made for a school projects
